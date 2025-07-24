@@ -1,43 +1,39 @@
-// server/index.js
 const express = require('express');
+const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
-const cors = require('cors');
 
 const app = express();
 app.use(cors());
-const server = http.createServer(app);
 
+const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: '*' },
+  cors: {
+    origin: 'https://onlinechatapp-client.vercel.app/', // or your Vercel frontend URL
+    methods: ['GET', 'POST']
+  }
 });
 
-const users = {};
-
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+  console.log('New user connected:', socket.id);
 
-  socket.on('login', (username) => {
-    users[socket.id] = username;
-    io.emit('user-list', Object.values(users));
-  });
-
-  socket.on('private-message', ({ to, message, from }) => {
-    const targetSocket = Object.keys(users).find(key => users[key] === to);
-    if (targetSocket) {
-      io.to(targetSocket).emit('private-message', { from, message });
-    }
+  socket.on('private-message', ({ recipientId, message }) => {
+    io.to(recipientId).emit('private-message', {
+      senderId: socket.id,
+      message
+    });
   });
 
   socket.on('disconnect', () => {
-    delete users[socket.id];
-    io.emit('user-list', Object.values(users));
+    console.log('User disconnected:', socket.id);
   });
 });
 
 app.get('/', (req, res) => {
-  res.send('Chat server running');
+  res.send('Server is running...');
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+});
